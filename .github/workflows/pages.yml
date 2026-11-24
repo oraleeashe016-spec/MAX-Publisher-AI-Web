@@ -35,7 +35,7 @@ jobs:
       - name: Verify site version
         run: |
           echo "Deploying MAX Publisher AI Web"
-          grep -n "VERSION 0.5" index.html
+          grep -n "VERSION 0.6" index.html
           test -s rss-feed.json
           python -c 'import json; d=json.load(open("rss-feed.json", encoding="utf-8")); print("RSS items:", d["count"])'
           grep -n "RSS-новости" index.html
