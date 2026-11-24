@@ -14,7 +14,7 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, HttpUrl
 
-APP_VERSION = "0.5.0"
+APP_VERSION = "0.5.1"
 MAX_API = "https://platform-api2.max.ru"
 
 def env(name: str, default: str = "") -> str:
@@ -182,14 +182,21 @@ async def rss_feeds():
 
 async def fetch_rss_feed(feed: dict[str, str], client: httpx.AsyncClient, query: str) -> tuple[list[dict[str, Any]], str | None]:
     try:
-        response = await client.get(
+        # Stream with a hard byte cap and do not follow redirects. Feed URLs are a
+        # fixed allowlist; refusing redirects prevents a feed host from redirecting
+        # the backend toward an unrelated or private network address.
+        body = bytearray()
+        async with client.stream(
+            "GET",
             feed["url"],
             headers={"Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml"},
-        )
-        response.raise_for_status()
-        if len(response.content) > 2_000_000:
-            return [], feed["id"] + ": feed too large"
-        parsed = feedparser.parse(response.content)
+        ) as response:
+            response.raise_for_status()
+            async for chunk in response.aiter_bytes():
+                body.extend(chunk)
+                if len(body) > 2_000_000:
+                    return [], feed["id"] + ": feed too large"
+        parsed = feedparser.parse(bytes(body))
         if parsed.bozo and not parsed.entries:
             return [], feed["id"] + ": invalid RSS"
         items: list[dict[str, Any]] = []
@@ -228,7 +235,7 @@ async def rss_items(query: str = "", source: str = "all", limit: int = 40):
         raise HTTPException(400, "Unknown RSS source")
     timeout = httpx.Timeout(12.0, connect=5.0)
     limits = httpx.Limits(max_connections=8, max_keepalive_connections=4)
-    async with httpx.AsyncClient(timeout=timeout, limits=limits, follow_redirects=True, headers={"User-Agent": "MAX-Publisher-AI-Web/0.5 RSS reader"}) as client:
+    async with httpx.AsyncClient(timeout=timeout, limits=limits, follow_redirects=False, headers={"User-Agent": "MAX-Publisher-AI-Web/0.5.1 RSS reader"}) as client:
         results = await asyncio.gather(*(fetch_rss_feed(feed, client, query) for feed in selected))
     items = [item for feed_items, _ in results for item in feed_items]
     errors = [error for _, error in results if error]
