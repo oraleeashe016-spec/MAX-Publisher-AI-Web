@@ -9,7 +9,7 @@ permissions:
   id-token: write
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   deploy:
     environment:
@@ -17,8 +17,15 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout latest main
         uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Verify site version
+        run: |
+          echo "Deploying MAX Publisher AI Web"
+          grep -n "VERSION 0.5" index.html
+          grep -n "RSS-новости" index.html
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload site
