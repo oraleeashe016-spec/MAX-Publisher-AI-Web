@@ -82,7 +82,7 @@ window.rssToEditor=function(i){
   byId('postPrice').value='';
   byId('postOld').value='';
   byId('postUrl').value=item.url||'';
-  byId('postText').value=[item.summary||'Краткое описание отсутствует.', 'Источник: '+item.source_name, item.published?'Дата: '+item.published:'', 'Материал источника: '+item.url, 'Перед публикацией проверь факты и соблюдай правила цитирования и использования материалов источника.'].filter(Boolean).join('\\n\\n');
+  byId('postText').value=[item.summary||'Краткое описание отсутствует.', 'Источник: '+item.source_name, item.published?'Дата: '+item.published:'', 'Материал источника: '+item.url, 'Перед публикацией проверь факты и соблюдай правила цитирования и использования материалов источника.'].filter(Boolean).join('\n\n')
   updatePreview();go('editor');apiToast('Материал RSS перенесён в редактор');
 };
 async function renderRssFeedList(){
