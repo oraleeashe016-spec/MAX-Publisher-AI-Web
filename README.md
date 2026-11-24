@@ -1,34 +1,41 @@
-# MAX Publisher AI Web — v0.3
+# MAX Publisher AI Web — v0.4
 
-Mobile-first PWA and a separate FastAPI backend for preparing digital-technology deal posts for a MAX channel.
+Mobile-first PWA for discovering technology stories and preparing posts for a MAX channel.
 
-## Frontend v0.3
+## v0.4 — RSS mode
 
-- Mobile dashboard, search filters, product editor and local draft queue.
-- Backend settings panel: HTTPS API URL and session-only APP_API_KEY.
-- Search uses the configured backend when its URL is set; demo catalog is used only when no backend URL is configured.
-- AI draft generation uses the backend when a URL and APP_API_KEY are supplied.
-- A draft can be explicitly sent to MAX after a confirmation prompt; successful delivery requires a configured backend and MAX bot credentials.
-- PWA cache is versioned and updated for v0.3.
+- Search screen has two modes: product offers and RSS editorial content.
+- Seven public RSS feeds are included from iXBT, 3DNews and Overclockers.ru.
+- RSS search supports text filtering and selecting an individual feed.
+- Articles can be transferred into the post editor with title, summary, publication date and source link.
+- RSS items are clearly marked as editorial material, not prices, stock status or verified discounts.
+- RSS feeds are fetched by the backend from a fixed allowlist; arbitrary user-supplied feed URLs are not fetched.
+- PWA cache version bumped to v0.4.
 
-## Backend
+## Included open RSS sources
 
-See [backend/README.md](backend/README.md). The FastAPI service provides health/config, authorized JSON-feed ingestion, hybrid Ollama/cloud-compatible AI drafting and confirmed MAX Bot API publishing.
+- iXBT News — https://www.ixbt.com/export/news/rss.xml
+- iXBT Articles — https://www.ixbt.com/export/articles/rss.xml
+- 3DNews Hardware — https://3dnews.ru/news/rss/
+- 3DNews Software — https://3dnews.ru/software-news/rss/
+- 3DNews Phones — https://3dnews.ru/phone/rss/
+- Overclockers News — https://overclockers.ru/rss/news.rss
+- Overclockers Lab / Reviews — https://overclockers.ru/rss/lab.rss
 
-Deploy the backend as a separate HTTPS container service. A Render Blueprint is included in `render.yaml` for a free test deployment. Free Render services sleep after 15 minutes of inactivity and can take about a minute to wake; their local filesystem is ephemeral. GitHub Pages hosts only the static frontend and cannot run Python or store integration secrets.
+These feeds are public editorial feeds. Feed availability and publication frequency can change; the backend reports individual feed errors rather than claiming every source is always online. Respect publisher terms when quoting or reusing article text.
 
-## Sources and accuracy
+## Backend endpoints
 
-The backend does not scrape store websites. It accepts HTTPS JSON feeds that the owner is authorized to use. Configure the source feed URLs in backend environment variables. A store showing as not configured returns no live products.
+- GET /api/health
+- GET /api/config
+- POST /api/search — configured authorized product JSON feeds
+- GET /api/rss/feeds — allowlisted RSS feed directory
+- GET /api/rss/items?query=&source=&limit= — read RSS items
+- POST /api/ai/draft — hybrid Ollama/cloud drafting, requires X-API-Key
+- POST /api/max/publish — explicit confirmed MAX publication, requires X-API-Key
 
-The v0.2 demo catalog is illustrative only. Do not treat its products, prices or discount percentages as current offers.
+## Important distinctions
 
-## Required configuration before live use
+RSS is useful for technology news, announcements and reviews. It is not a substitute for store price feeds and does not prove a product is discounted or available. Keep product-price ingestion and editorial RSS as separate modes.
 
-- Backend host with HTTPS and environment-variable support.
-- Long random APP_API_KEY and exact CORS_ORIGINS.
-- Licensed/official feed URLs for each source that is available to the account.
-- Ollama endpoint reachable from backend and/or an OpenAI-compatible cloud endpoint plus server-side key.
-- MAX bot token, channel ID and posting permission configured server-side.
-
-Never commit real secrets, bot tokens, cloud AI keys or a real `.env` file.
+GitHub Pages hosts only the static frontend. RSS parsing, AI calls and MAX delivery run on the separate FastAPI backend. Store API credentials, AI keys and MAX bot tokens only in backend environment variables.
