@@ -1,47 +1,34 @@
-# MAX Publisher AI Web — v0.2
+# MAX Publisher AI Web — v0.3
 
-Mobile-first PWA for preparing digital-technology deal posts for a MAX channel.
+Mobile-first PWA and a separate FastAPI backend for preparing digital-technology deal posts for a MAX channel.
 
-## v0.2 implemented
+## Frontend v0.3
 
-- Improved mobile-first dashboard and five-section navigation.
-- Demo product catalog with text search, category chips, store filter, minimum-discount filter and sorting.
-- Product-to-editor handoff with price, old price, product URL and draft text.
-- Draft preview and editable publication queue.
-- Draft persistence in browser local storage on the current device.
-- JSON export for backup.
-- Updated PWA manifest and versioned service-worker cache with old-cache cleanup.
-- Honest integration states: providers, hybrid AI and MAX delivery are shown as not connected until real server credentials and adapters exist.
+- Mobile dashboard, search filters, product editor and local draft queue.
+- Backend settings panel: HTTPS API URL and session-only APP_API_KEY.
+- Search uses the configured backend when its URL is set; demo catalog is used only when no backend URL is configured.
+- AI draft generation uses the backend when a URL and APP_API_KEY are supplied.
+- A draft can be explicitly sent to MAX after a confirmation prompt; successful delivery requires a configured backend and MAX bot credentials.
+- PWA cache is versioned and updated for v0.3.
 
-## Important: demo data
+## Backend
 
-The product list, prices and discount percentages are illustrative demo data. They are not fetched from Yandex Market, Ozon, DNS, M.Video or Citilink and must not be published as current offers.
+See [backend/README.md](backend/README.md). The FastAPI service provides health/config, authorized JSON-feed ingestion, hybrid Ollama/cloud-compatible AI drafting and confirmed MAX Bot API publishing.
 
-## Deploy
+Deploy the backend as a separate HTTPS container service. GitHub Pages hosts only the static frontend and cannot run Python or store integration secrets.
 
-GitHub Pages deploys the repository root using `.github/workflows/pages.yml`.
+## Sources and accuracy
 
-Public URL: https://oraleeashe016-spec.github.io/MAX-Publisher-AI-Web/
+The backend does not scrape store websites. It accepts HTTPS JSON feeds that the owner is authorized to use. Configure the source feed URLs in backend environment variables. A store showing as not configured returns no live products.
 
-After a new deployment, if an older page remains cached on a phone, close the installed PWA/browser tab and reopen the URL. The service worker uses a versioned cache and clears the previous cache on activation.
+The v0.2 demo catalog is illustrative only. Do not treat its products, prices or discount percentages as current offers.
 
-## Architecture for real integrations
+## Required configuration before live use
 
-GitHub Pages is a static host. It cannot safely store API secrets, run Ollama, or perform authenticated MAX Bot API delivery. Real operation requires a separate HTTPS backend.
+- Backend host with HTTPS and environment-variable support.
+- Long random APP_API_KEY and exact CORS_ORIGINS.
+- Licensed/official feed URLs for each source that is available to the account.
+- Ollama endpoint reachable from backend and/or an OpenAI-compatible cloud endpoint plus server-side key.
+- MAX bot token, channel ID and posting permission configured server-side.
 
-Planned backend responsibilities:
-
-1. Provider adapters for Yandex Market, Ozon, DNS, M.Video and Citilink, using only authorized APIs, affiliate feeds or licensed catalog providers.
-2. Product normalization: source, product ID, model, current price, previous/reference price, availability, region, URL and checked-at timestamp.
-3. Deal scoring that distinguishes a verified price history from a seller-provided crossed-out price.
-4. Hybrid AI router: local Ollama where reachable by the backend, cloud provider as configured fallback, timeouts and cost controls.
-5. MAX Bot API transport using the current official API contract, with channel permissions and explicit manual approval.
-6. Owner authentication, rate limiting, audit log, HTTPS and server-side secret storage.
-
-## Security
-
-Never put API keys, bot tokens, or private credentials in browser JavaScript, this public repository, or a GitHub Pages deployment. Do not scrape private endpoints or bypass access controls.
-
-## Local preview
-
-Serve the repository root with any static HTTP server, or open the public Pages URL on a phone. Service-worker/PWA behavior requires HTTPS or localhost.
+Never commit real secrets, bot tokens, cloud AI keys or a real `.env` file.
