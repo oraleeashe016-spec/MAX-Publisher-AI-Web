@@ -1,4 +1,4 @@
-# MAX Publisher AI backend v0.3
+# MAX Publisher AI backend v0.5.1
 
 FastAPI service for authorized product-feed ingestion, hybrid AI drafts and explicitly confirmed MAX channel publishing.
 
@@ -43,11 +43,11 @@ Build the container using this Dockerfile on a backend host that supports enviro
 
 GitHub Pages remains the static frontend host; it cannot run FastAPI, Ollama or keep secrets.
 
-## RSS reader (v0.4)
+## RSS reader (v0.5.1)
 
 The backend exposes two read-only endpoints:
 
 - `GET /api/rss/feeds` — lists the built-in public feed directory.
 - `GET /api/rss/items?query=<text>&source=<feed_id>&limit=40` — fetches and parses selected feeds.
 
-The allowlist includes iXBT news/articles, 3DNews hardware/software/phones and Overclockers.ru news/reviews. Feed URLs are fixed in `main.py`; arbitrary URLs are not accepted, which avoids turning this endpoint into an open URL fetcher. RSS entries contain title, summary, source, publication date and original article URL. They are editorial content only and must not be treated as price/discount data. Check publisher terms before republishing excerpts.
+The allowlist includes iXBT news/articles, 3DNews hardware/software/phones and Overclockers.ru news/reviews. Feed URLs are fixed in `main.py`; arbitrary URLs are not accepted. RSS downloads are streamed with a 2 MB cap, requests do not follow redirects, and feed requests are fetched concurrently with bounded connection limits. RSS entries contain title, summary, source, publication date and original article URL. They are editorial content only and must not be treated as price/discount data. Check publisher terms before republishing excerpts.
