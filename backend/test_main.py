@@ -29,7 +29,7 @@ def test_health_reports_current_backend_version():
     response = client.get("/api/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
-    assert response.json()["version"] == "0.5.1"
+    assert response.json()["version"] == "0.6.0"
 
 
 def test_rss_feed_directory_is_fixed_and_https_only():
@@ -122,3 +122,26 @@ def test_fetch_rss_feed_rejects_oversized_payload():
     items, error = asyncio.run(main.fetch_rss_feed(main.RSS_FEEDS[0], FakeRSSClient(b"x" * 2_000_001), ""))
     assert items == []
     assert error and "too large" in error
+
+
+def test_config_reports_groq_provider_without_exposing_provider_key(monkeypatch):
+    monkeypatch.setenv("CLOUD_AI_PROVIDER", "groq")
+    monkeypatch.setenv("CLOUD_AI_BASE_URL", "https://api.groq.com/openai/v1")
+    monkeypatch.setenv("CLOUD_AI_MODEL", "openai/gpt-oss-20b")
+    monkeypatch.setenv("CLOUD_AI_API_KEY", "test-secret-do-not-return")
+    response = client.get("/api/config")
+    payload = response.json()
+    assert payload["ai"]["cloud_provider"] == "groq"
+    assert payload["ai"]["cloud_model"] == "openai/gpt-oss-20b"
+    assert payload["ai"]["cloud_configured"] is True
+    assert "test-secret-do-not-return" not in response.text
+    assert "CLOUD_AI_API_KEY" not in response.text
+
+
+def test_config_groq_not_configured_without_api_key(monkeypatch):
+    monkeypatch.setenv("CLOUD_AI_PROVIDER", "groq")
+    monkeypatch.setenv("CLOUD_AI_BASE_URL", "https://api.groq.com/openai/v1")
+    monkeypatch.setenv("CLOUD_AI_MODEL", "openai/gpt-oss-20b")
+    monkeypatch.delenv("CLOUD_AI_API_KEY", raising=False)
+    response = client.get("/api/config")
+    assert response.json()["ai"]["cloud_configured"] is False
