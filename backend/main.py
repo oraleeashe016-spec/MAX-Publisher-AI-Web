@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 import time
+import asyncio
 import html as html_lib
 from typing import Any, Literal
 from urllib.parse import urlparse
@@ -13,7 +14,7 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, HttpUrl
 
-APP_VERSION = "0.4.0"
+APP_VERSION = "0.5.0"
 MAX_API = "https://platform-api2.max.ru"
 
 def env(name: str, default: str = "") -> str:
@@ -179,6 +180,45 @@ def clean_rss_text(value: Any, limit: int = 900) -> str:
 async def rss_feeds():
     return {"feeds": RSS_FEEDS, "count": len(RSS_FEEDS), "note": "RSS содержит редакционные материалы, а не подтверждённые цены магазинов."}
 
+async def fetch_rss_feed(feed: dict[str, str], client: httpx.AsyncClient, query: str) -> tuple[list[dict[str, Any]], str | None]:
+    try:
+        response = await client.get(
+            feed["url"],
+            headers={"Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml"},
+        )
+        response.raise_for_status()
+        if len(response.content) > 2_000_000:
+            return [], feed["id"] + ": feed too large"
+        parsed = feedparser.parse(response.content)
+        if parsed.bozo and not parsed.entries:
+            return [], feed["id"] + ": invalid RSS"
+        items: list[dict[str, Any]] = []
+        for entry in parsed.entries[:40]:
+            title = clean_rss_text(entry.get("title"), 300)
+            link = str(entry.get("link") or "")
+            if not title or not link.startswith(("https://", "http://")):
+                continue
+            summary = clean_rss_text(entry.get("summary") or entry.get("description") or "")
+            published = str(entry.get("published") or entry.get("updated") or "")
+            item = {
+                "id": str(entry.get("id") or link),
+                "title": title,
+                "summary": summary,
+                "url": link,
+                "published": published,
+                "source_id": feed["id"],
+                "source_name": feed["name"],
+                "category": feed["category"],
+                "is_rss": True,
+            }
+            haystack = (title + " " + summary + " " + feed["category"]).casefold()
+            if not query or query.casefold() in haystack:
+                items.append(item)
+        return items, None
+    except (httpx.HTTPError, ValueError, TypeError, KeyError):
+        return [], feed["id"] + ": feed unavailable"
+
+
 @app.get("/api/rss/items")
 async def rss_items(query: str = "", source: str = "all", limit: int = 40):
     if len(query) > 120 or not 1 <= limit <= 100:
@@ -186,42 +226,14 @@ async def rss_items(query: str = "", source: str = "all", limit: int = 40):
     selected = [feed for feed in RSS_FEEDS if source == "all" or feed["id"] == source]
     if source != "all" and not selected:
         raise HTTPException(400, "Unknown RSS source")
-    items: list[dict[str, Any]] = []
-    errors: list[str] = []
-    async with httpx.AsyncClient(timeout=12.0, follow_redirects=True, headers={"User-Agent":"MAX-Publisher-AI-Web/0.4 RSS reader"}) as client:
-        for feed in selected:
-            try:
-                response = await client.get(feed["url"], headers={"Accept":"application/rss+xml, application/atom+xml, application/xml, text/xml"})
-                response.raise_for_status()
-                parsed = feedparser.parse(response.content)
-                if parsed.bozo and not parsed.entries:
-                    errors.append(feed["id"] + ": invalid RSS")
-                    continue
-                for entry in parsed.entries[:40]:
-                    title = clean_rss_text(entry.get("title"), 300)
-                    link = str(entry.get("link") or "")
-                    if not title or not link.startswith(("https://", "http://")):
-                        continue
-                    summary = clean_rss_text(entry.get("summary") or entry.get("description") or "")
-                    published = str(entry.get("published") or entry.get("updated") or "")
-                    item = {
-                        "id": str(entry.get("id") or link),
-                        "title": title,
-                        "summary": summary,
-                        "url": link,
-                        "published": published,
-                        "source_id": feed["id"],
-                        "source_name": feed["name"],
-                        "category": feed["category"],
-                        "is_rss": True,
-                    }
-                    haystack = (title + " " + summary + " " + feed["category"]).casefold()
-                    if not query or query.casefold() in haystack:
-                        items.append(item)
-            except (httpx.HTTPError, ValueError, TypeError):
-                errors.append(feed["id"] + ": feed unavailable")
+    timeout = httpx.Timeout(12.0, connect=5.0)
+    limits = httpx.Limits(max_connections=8, max_keepalive_connections=4)
+    async with httpx.AsyncClient(timeout=timeout, limits=limits, follow_redirects=True, headers={"User-Agent": "MAX-Publisher-AI-Web/0.5 RSS reader"}) as client:
+        results = await asyncio.gather(*(fetch_rss_feed(feed, client, query) for feed in selected))
+    items = [item for feed_items, _ in results for item in feed_items]
+    errors = [error for _, error in results if error]
     items.sort(key=lambda item: item["published"], reverse=True)
-    return {"items": items[:limit], "count": len(items), "feeds": RSS_FEEDS, "errors": errors, "is_rss": True}
+    return {"items": items[:limit], "count": len(items[:limit]), "feeds": RSS_FEEDS, "errors": errors, "is_rss": True}
 
 def openai_compatible_payload(model: str, prompt: str) -> dict[str, Any]:
     return {"model": model, "messages": [
