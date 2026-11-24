@@ -15,7 +15,7 @@ Mobile-first PWA and a separate FastAPI backend for preparing digital-technology
 
 See [backend/README.md](backend/README.md). The FastAPI service provides health/config, authorized JSON-feed ingestion, hybrid Ollama/cloud-compatible AI drafting and confirmed MAX Bot API publishing.
 
-Deploy the backend as a separate HTTPS container service. GitHub Pages hosts only the static frontend and cannot run Python or store integration secrets.
+Deploy the backend as a separate HTTPS container service. A Render Blueprint is included in `render.yaml` for a free test deployment. Free Render services sleep after 15 minutes of inactivity and can take about a minute to wake; their local filesystem is ephemeral. GitHub Pages hosts only the static frontend and cannot run Python or store integration secrets.
 
 ## Sources and accuracy
 
