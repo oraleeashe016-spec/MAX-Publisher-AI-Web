@@ -170,7 +170,7 @@ RSS_FEEDS = [
 
 def clean_rss_text(value: Any, limit: int = 900) -> str:
     raw = str(value or "")
-    raw = re.sub(r"<(script|style)[^>]*>.*?</\\1>", " ", raw, flags=re.I|re.S)
+    raw = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", raw, flags=re.I|re.S)
     raw = re.sub(r"<[^>]+>", " ", raw)
     raw = html_lib.unescape(raw)
     return re.sub(r"\s+", " ", raw).strip()[:limit]
