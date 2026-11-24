@@ -29,7 +29,7 @@ def test_health_reports_current_backend_version():
     response = client.get("/api/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
-    assert response.json()["version"] == "0.6.0"
+    assert response.json()["version"] == "0.6.1"
 
 
 def test_rss_feed_directory_is_fixed_and_https_only():
@@ -145,3 +145,27 @@ def test_config_groq_not_configured_without_api_key(monkeypatch):
     monkeypatch.delenv("CLOUD_AI_API_KEY", raising=False)
     response = client.get("/api/config")
     assert response.json()["ai"]["cloud_configured"] is False
+
+
+def test_rss_ai_prompt_preserves_attribution_and_forbids_invented_facts():
+    request = main.DraftRequest(
+        product_name="Новая модель смартфона",
+        product_url="https://example.com/story",
+        facts="В источнике сообщается о презентации модели.",
+        content_type="rss",
+        source_name="Тестовое издание",
+        published_at="24.11.2026",
+        tone="concise",
+    )
+    prompt = main.build_ai_prompt(request)
+    assert "Не добавляй сведения" in prompt
+    assert "Тестовое издание" in prompt
+    assert "https://example.com/story" in prompt
+    assert "24.11.2026" in prompt
+    assert "Не копируй длинные фрагменты" in prompt
+
+
+def test_product_ai_prompt_keeps_discount_safety_rules():
+    request = main.DraftRequest(product_name="Телефон", current_price="10000")
+    prompt = main.build_ai_prompt(request)
+    assert "Не называй предложение скидкой" in prompt
