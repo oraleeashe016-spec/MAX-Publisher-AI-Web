@@ -14,7 +14,7 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, HttpUrl
 
-APP_VERSION = "0.5.1"
+APP_VERSION = "0.6.0"
 MAX_API = "https://platform-api2.max.ru"
 
 def env(name: str, default: str = "") -> str:
@@ -129,8 +129,14 @@ async def config():
         "sources": source_status(),
         "ai": {
             "mode": env("AI_MODE", "hybrid"),
+            "cloud_provider": env("CLOUD_AI_PROVIDER", "groq").lower(),
+            "cloud_model": env("CLOUD_AI_MODEL", "openai/gpt-oss-20b"),
             "ollama_configured": bool(env("OLLAMA_BASE_URL") and env("OLLAMA_MODEL")),
-            "cloud_configured": bool(env("CLOUD_AI_BASE_URL") and env("CLOUD_AI_API_KEY") and env("CLOUD_AI_MODEL")),
+            "cloud_configured": bool(
+                env("CLOUD_AI_API_KEY")
+                and env("CLOUD_AI_MODEL", "openai/gpt-oss-20b")
+                and env("CLOUD_AI_BASE_URL", "https://api.groq.com/openai/v1")
+            ),
         },
         "max": {"configured": bool(env("MAX_BOT_TOKEN") and env("MAX_CHANNEL_ID"))},
     }
@@ -271,7 +277,10 @@ async def ai_draft(request: DraftRequest, x_api_key: str | None = Header(default
     )
     mode = env("AI_MODE", "hybrid").lower()
     ollama_url, ollama_model = env("OLLAMA_BASE_URL"), env("OLLAMA_MODEL")
-    cloud_url, cloud_key, cloud_model = env("CLOUD_AI_BASE_URL"), env("CLOUD_AI_API_KEY"), env("CLOUD_AI_MODEL")
+    cloud_provider = env("CLOUD_AI_PROVIDER", "groq").lower()
+    cloud_url = env("CLOUD_AI_BASE_URL", "https://api.groq.com/openai/v1")
+    cloud_key = env("CLOUD_AI_API_KEY")
+    cloud_model = env("CLOUD_AI_MODEL", "openai/gpt-oss-20b")
     if mode in ("hybrid", "ollama") and ollama_url and ollama_model:
         try:
             text = await call_chat_completion(ollama_url, ollama_model, "", prompt)
@@ -282,7 +291,7 @@ async def ai_draft(request: DraftRequest, x_api_key: str | None = Header(default
     if mode in ("hybrid", "cloud") and cloud_url and cloud_key and cloud_model:
         try:
             text = await call_chat_completion(cloud_url, cloud_model, cloud_key, prompt)
-            return {"text": text, "provider": "cloud"}
+            return {"text": text, "provider": cloud_provider, "model": cloud_model}
         except (httpx.HTTPError, KeyError, IndexError, ValueError):
             raise HTTPException(502, "Cloud AI provider unavailable")
     raise HTTPException(503, "No AI provider is configured")
