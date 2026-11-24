@@ -76,4 +76,5 @@ function exportPosts(){let blob=new Blob([JSON.stringify({version:'0.2',exported
 $('query').addEventListener('keydown',e=>{if(e.key==='Enter')runSearch()});['store','discountMin','sort'].forEach(id=>$(id).addEventListener('change',runSearch));
 renderSources('homeSources');renderSources('settingsSources');renderCategories();renderQueue();updateStats();
 if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
-</script></body></html>
+</script><script src="./backend-client.js"></script>
+</body></html>
