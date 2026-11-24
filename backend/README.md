@@ -42,3 +42,12 @@ The service uses `POST https://platform-api2.max.ru/messages?chat_id=...` with `
 Build the container using this Dockerfile on a backend host that supports environment variables and HTTPS. Set `CORS_ORIGINS` to the exact GitHub Pages origin and configure a long random `APP_API_KEY`. Do not expose the backend without authentication for privileged endpoints.
 
 GitHub Pages remains the static frontend host; it cannot run FastAPI, Ollama or keep secrets.
+
+## RSS reader (v0.4)
+
+The backend exposes two read-only endpoints:
+
+- `GET /api/rss/feeds` — lists the built-in public feed directory.
+- `GET /api/rss/items?query=<text>&source=<feed_id>&limit=40` — fetches and parses selected feeds.
+
+The allowlist includes iXBT news/articles, 3DNews hardware/software/phones and Overclockers.ru news/reviews. Feed URLs are fixed in `main.py`; arbitrary URLs are not accepted, which avoids turning this endpoint into an open URL fetcher. RSS entries contain title, summary, source, publication date and original article URL. They are editorial content only and must not be treated as price/discount data. Check publisher terms before republishing excerpts.
