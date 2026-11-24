@@ -1,4 +1,4 @@
-# MAX Publisher AI backend v0.6.0
+# MAX Publisher AI backend v0.6.1
 
 FastAPI service for authorized product-feed ingestion, hybrid AI drafts and explicitly confirmed MAX channel publishing.
 
@@ -75,3 +75,10 @@ Groq publishes model-specific organization-level RPM, RPD, TPM and TPD limits. E
 ### Data handling
 
 Send only the information needed to draft a post. Do not send credentials, private customer data or unrelated personal information. The adult owner should review Groq's current data-retention terms before using the service with sensitive material.
+
+
+## RSS-aware AI editor (v0.6.1)
+
+The authenticated `POST /api/ai/draft` endpoint accepts `content_type=product|rss`. RSS mode receives title, summary, source, publication date and original URL, then asks the model for a concise paraphrase without invented facts or long copied excerpts. The source attribution and original link are included in the prompt. Product mode retains the existing price/discount safeguards.
+
+The frontend adds a distinct “Переписать с AI” action and style selector. It requires a configured backend URL and session-only `APP_API_KEY`. If not configured, the UI explains that AI is unavailable rather than silently presenting a local template as AI output. Provider quota HTTP 429 is surfaced as a quota message; no automatic retry loop is performed.
