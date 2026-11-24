@@ -3,6 +3,8 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    - cron: '*/30 * * * *'
 permissions:
   actions: read
   contents: read
@@ -22,10 +24,18 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: main
+      - name: Prepare Python for RSS cache
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Refresh public RSS cache
+        run: |
+          python -m pip install --disable-pip-version-check feedparser>=6,<7
+          python scripts/update_rss_cache.py
       - name: Verify site version
         run: |
           echo "Deploying MAX Publisher AI Web"
-          grep -n "VERSION 0.5" index.html
+          grep -n "VERSION 0.5" index.html\n          test -s rss-feed.json\n          python -c "import json; d=json.load(open('rss-feed.json', encoding='utf-8')); print(f\"RSS items: {d[\\\"count\\\"]}\")"
           grep -n "RSS-новости" index.html
       - name: Configure Pages
         uses: actions/configure-pages@v5
