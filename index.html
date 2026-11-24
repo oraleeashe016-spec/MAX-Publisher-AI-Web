@@ -9,7 +9,7 @@
 @media(min-width:680px){main{padding:28px 28px}.stats{grid-template-columns:repeat(4,1fr)}.nav{position:static;transform:none;width:auto;margin:0 28px 20px;border:1px solid var(--line);border-radius:13px}.view{max-width:850px;margin:auto}.product-list{display:grid;grid-template-columns:1fr 1fr;gap:9px}.product{margin:0}}
 </style></head>
 <body><div class="app">
-<header class="top"><div class="brand">▣ MAX Publisher AI<small>WEB EDITION</small></div><span class="version">VERSION 0.4</span></header>
+<header class="top"><div class="brand">▣ MAX Publisher AI<small>WEB EDITION</small></div><span class="version">VERSION 0.5</span></header>
 <main>
 <section class="view active" id="home"><p class="eyebrow">РАБОЧАЯ ПАНЕЛЬ</p><h1>Обзор</h1><p class="muted">Поиск предложений, подготовка и контроль публикаций</p>
 <div class="stats"><div class="card stat"><span>Найдено товаров</span><strong id="statFound">0</strong><small>за текущую сессию</small></div><div class="card stat"><span>Скидки в выборке</span><strong id="statDeals">0</strong><small>по тестовым данным</small></div><div class="card stat"><span>Черновики</span><strong id="statPosts">0</strong><small>сохранено на устройстве</small></div><div class="card stat"><span>Источники</span><strong>5</strong><small>ожидают подключения</small></div></div>
@@ -75,6 +75,6 @@ function exportPosts(){let blob=new Blob([JSON.stringify({version:'0.2',exported
 ['postTitle','postName','postPrice','postOld','postUrl','postText'].forEach(id=>$(id).addEventListener('input',updatePreview));
 $('query').addEventListener('keydown',e=>{if(e.key==='Enter')runSearch()});['store','discountMin','sort'].forEach(id=>$(id).addEventListener('change',runSearch));
 renderSources('homeSources');renderSources('settingsSources');renderCategories();renderQueue();updateStats();
-if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).catch(()=>{});
 </script><script src="./backend-client.js"></script>
 </body></html>
