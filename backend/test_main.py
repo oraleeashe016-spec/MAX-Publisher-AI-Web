@@ -158,7 +158,7 @@ def test_rss_ai_prompt_preserves_attribution_and_forbids_invented_facts():
         tone="concise",
     )
     prompt = main.build_ai_prompt(request)
-    assert "Не добавляй сведения" in prompt
+    assert "не добавляй сведения" in prompt.casefold()
     assert "Тестовое издание" in prompt
     assert "https://example.com/story" in prompt
     assert "24.11.2026" in prompt
