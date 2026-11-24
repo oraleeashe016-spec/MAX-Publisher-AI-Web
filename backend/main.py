@@ -13,7 +13,7 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, HttpUrl
 
-APP_VERSION = "0.3.0"
+APP_VERSION = "0.4.0"
 MAX_API = "https://platform-api2.max.ru"
 
 def env(name: str, default: str = "") -> str:
@@ -173,7 +173,7 @@ def clean_rss_text(value: Any, limit: int = 900) -> str:
     raw = re.sub(r"<(script|style)[^>]*>.*?</\\1>", " ", raw, flags=re.I|re.S)
     raw = re.sub(r"<[^>]+>", " ", raw)
     raw = html_lib.unescape(raw)
-    return re.sub(r"\\s+", " ", raw).strip()[:limit]
+    return re.sub(r"\s+", " ", raw).strip()[:limit]
 
 @app.get("/api/rss/feeds")
 async def rss_feeds():
