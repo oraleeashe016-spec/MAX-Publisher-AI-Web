@@ -128,7 +128,7 @@ def main() -> None:
         "items": all_items[:300],
         "note": "RSS содержит редакционные материалы, а не подтверждённые цены или скидки магазинов.",
     }
-    OUTPUT.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+    OUTPUT.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"RSS cache generated: {len(all_items)} items; {len(errors)} feed errors")
     for status in feed_status:
         print(f"- {status['id']}: {status['count']} items; updated={status['updated']}")
