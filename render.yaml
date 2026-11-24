@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: max-publisher-ai-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /api/health
+    envVars:
+      - key: APP_API_KEY
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: https://oraleeashe016-spec.github.io
+      - key: AI_MODE
+        value: hybrid
+      - key: OLLAMA_BASE_URL
+        sync: false
+      - key: OLLAMA_MODEL
+        sync: false
+      - key: CLOUD_AI_BASE_URL
+        sync: false
+      - key: CLOUD_AI_API_KEY
+        sync: false
+      - key: CLOUD_AI_MODEL
+        sync: false
+      - key: MAX_BOT_TOKEN
+        sync: false
+      - key: MAX_CHANNEL_ID
+        sync: false
+      - key: YANDEX_FEED_URL
+        sync: false
+      - key: OZON_FEED_URL
+        sync: false
+      - key: DNS_FEED_URL
+        sync: false
+      - key: MVIDEO_FEED_URL
+        sync: false
+      - key: CITILINK_FEED_URL
+        sync: false
