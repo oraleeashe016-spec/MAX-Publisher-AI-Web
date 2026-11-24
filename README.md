@@ -55,3 +55,11 @@ The repository includes a Render Blueprint in `render.yaml`. To create the servi
 5. Add AI and MAX credentials only in Render environment variables. Never put them in GitHub Pages, frontend source, issues or chat messages.
 
 The free Render service may sleep while idle; the first request after inactivity can take longer. Live RSS checks, AI calls and MAX publishing cannot be marked verified until the Render service and the relevant credentials are configured.
+
+
+## v0.5.5 — RSS post preparation
+
+- Added three editorial output formats: standard news, short note, and material announcement.
+- RSS post builder uses only the selected feed item's title, summary, source, publication date, and original URL.
+- The editor clearly indicates when an RSS item is selected; it does not claim to use a connected AI model.
+- No unverified facts, prices, or product specifications are generated.
