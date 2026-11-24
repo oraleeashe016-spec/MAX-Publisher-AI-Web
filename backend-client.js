@@ -29,8 +29,47 @@ window.runSearch=async function(){
 };
 window.openApiProduct=function(i){const p=found[i];if(p&&p.url)window.open(p.url,'_blank','noopener');else apiToast('Ссылка не предоставлена источником');};
 window.toEditor=function(i){const p=found[i]||products.find(x=>x.id===i);if(!p)return;byId('postTitle').value='🔥 Выгодное предложение дня';byId('postName').value=p.name;byId('postPrice').value=p.price||'';byId('postOld').value=p.old||'';byId('postUrl').value=p.url||'';byId('postText').value='Товар: '+p.name+'\nЦена: '+money(p.price)+(p.old?' вместо '+money(p.old):'')+(p.discount?'\nСкидка по данным источника: '+p.discount+'%':'')+'\nПроверь актуальную цену и наличие у продавца.';updatePreview();go('editor');apiToast(p.is_demo?'Демо-товар перенесён':'Товар из API перенесён');};
-const localMakeDraft=window.makeDraft;
-window.makeDraft=async function(){const base=apiBase(),secret=apiSecret();if(!base||!secret){return localMakeDraft();}const name=byId('postName').value.trim();if(!name){apiToast('Укажи товар');return;}try{const r=await fetch(base+'/api/ai/draft',{method:'POST',headers:{'Content-Type':'application/json','X-API-Key':secret},body:JSON.stringify({product_name:name,current_price:byId('postPrice').value,previous_price:byId('postOld').value,product_url:byId('postUrl').value,facts:byId('postText').value,tone:'energetic'})});const d=await r.json();if(!r.ok)throw new Error(d.detail||('HTTP '+r.status));byId('postText').value=d.text;updatePreview();apiToast('Черновик подготовлен: '+d.provider);}catch(e){apiToast('AI API: '+e.message);}};
+window.rewriteWithAI=async function(){
+ const base=apiBase(),secret=apiSecret();
+ if(!base||!secret){apiToast('Сначала настрой HTTPS backend и APP_API_KEY в разделе Настройки');return;}
+ const name=byId('postName').value.trim();
+ if(!name){apiToast('Сначала выбери RSS-новость или укажи название товара');return;}
+ const rss=typeof currentRssItem!=='undefined'&&currentRssItem&&currentRssItem.url===byId('postUrl').value.trim();
+ const item=rss?currentRssItem:null;
+ const tone=byId('aiTone')?.value||'neutral';
+ const payload={
+  product_name:name,
+  current_price:byId('postPrice').value,
+  previous_price:byId('postOld').value,
+  product_url:byId('postUrl').value,
+  facts:byId('postText').value,
+  tone:tone,
+  content_type:rss?'rss':'product',
+  source_name:item?.source_name||'',
+  published_at:item?.published||''
+ };
+ const button=byId('rewriteAiBtn');if(button){button.disabled=true;button.textContent='AI обрабатывает…';}
+ try{
+  const r=await fetch(base+'/api/ai/draft',{method:'POST',headers:{'Content-Type':'application/json','X-API-Key':secret},body:JSON.stringify(payload)});
+  const d=await r.json();if(!r.ok)throw new Error(d.detail||('HTTP '+r.status));
+  if(!d.text)throw new Error('AI вернул пустой текст');
+  byId('postText').value=d.text;
+  updatePreview();
+  apiToast('Текст подготовлен: '+d.provider+(d.model?' · '+d.model:''));
+ }catch(e){apiToast('AI API: '+e.message);}
+ finally{if(button){button.disabled=false;button.textContent='✦ Переписать с AI';}}
+};
+window.makeDraft=async function(){
+ const base=apiBase(),secret=apiSecret();
+ if(base&&secret)return window.rewriteWithAI();
+ const name=byId('postName').value.trim();
+ if(!name){apiToast('Сначала укажи товар');return;}
+ apiToast('Это локальный шаблон, не AI. Для AI настрой backend и APP_API_KEY.');
+ const price=Number(byId('postPrice').value),old=Number(byId('postOld').value);
+ const discount=old>price&&price?Math.round((1-price/old)*100):0;
+ byId('postText').value='Нашли интересное предложение!\\n\\n'+name+'\\nЦена: '+(price?money(price):'уточняйте цену')+(old>price&&price?' вместо '+money(old):'')+(discount?'\\nРазница по указанным ценам: '+discount+'%':'')+'\\n\\nПеред покупкой проверьте актуальную цену, наличие и условия доставки.';
+ updatePreview();
+};
 window.renderQueue=function(){if(!drafts.length){byId('queue').innerHTML='<div class="empty">Сохранённых публикаций пока нет.</div>';return;}byId('queue').innerHTML=drafts.map(p=>'<div class="source-row" style="align-items:flex-start"><div style="min-width:0"><b>'+safe(p.name)+'</b><div class="muted">'+safe(p.created)+' · '+(p.price?money(p.price):'цена не указана')+'</div><div class="muted">'+safe(p.title)+'</div></div><div style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn ghost" onclick="editDraft('+p.id+')">Открыть</button><button class="btn alt" onclick="sendApiDraft('+p.id+')">Отправить</button><button class="btn danger" onclick="deleteDraft('+p.id+')">×</button></div></div>').join('');};
 window.sendApiDraft=async function(id){const p=drafts.find(x=>x.id===id),base=apiBase(),secret=apiSecret();if(!p)return;if(!base||!secret){apiToast('Настрой backend и APP_API_KEY в разделе Настройки');go('settings');return;}if(!confirm('Отправить этот пост в канал MAX?'))return;const text=[p.title,p.name,p.text,p.url].filter(Boolean).join('\n\n');try{const r=await fetch(base+'/api/max/publish',{method:'POST',headers:{'Content-Type':'application/json','X-API-Key':secret},body:JSON.stringify({text:text,confirmed:true})});const d=await r.json();if(!r.ok)throw new Error(d.detail||('HTTP '+r.status));apiToast('MAX подтвердил отправку');}catch(e){apiToast('Не отправлено: '+e.message);}};
 document.addEventListener('DOMContentLoaded',addBackendSettings);
