@@ -48,6 +48,22 @@ jobs:
           done
           echo "github-pages artifact did not become visible"
           exit 1
-      - name: Deploy
+      - name: Deploy attempt 1
         id: deployment
         uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - name: Deploy attempt 2
+        id: deployment_retry_2
+        if: steps.deployment.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - name: Deploy attempt 3
+        id: deployment_retry_3
+        if: steps.deployment_retry_2.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - name: Fail if all deploy attempts failed
+        if: steps.deployment.outcome == 'failure' && steps.deployment_retry_2.outcome == 'failure' && steps.deployment_retry_3.outcome == 'failure'
+        run: |
+          echo "GitHub Pages deployment failed after three attempts."
+          exit 1
