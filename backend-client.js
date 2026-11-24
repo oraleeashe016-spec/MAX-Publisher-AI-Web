@@ -35,3 +35,68 @@ window.renderQueue=function(){if(!drafts.length){byId('queue').innerHTML='<div c
 window.sendApiDraft=async function(id){const p=drafts.find(x=>x.id===id),base=apiBase(),secret=apiSecret();if(!p)return;if(!base||!secret){apiToast('Настрой backend и APP_API_KEY в разделе Настройки');go('settings');return;}if(!confirm('Отправить этот пост в канал MAX?'))return;const text=[p.title,p.name,p.text,p.url].filter(Boolean).join('\n\n');try{const r=await fetch(base+'/api/max/publish',{method:'POST',headers:{'Content-Type':'application/json','X-API-Key':secret},body:JSON.stringify({text:text,confirmed:true})});const d=await r.json();if(!r.ok)throw new Error(d.detail||('HTTP '+r.status));apiToast('MAX подтвердил отправку');}catch(e){apiToast('Не отправлено: '+e.message);}};
 document.addEventListener('DOMContentLoaded',addBackendSettings);
 addBackendSettings();
+
+/* RSS mode: public, read-only editorial feeds; never presented as live price data. */
+window.searchMode='products';
+window.setSearchMode=function(mode){
+  window.searchMode=mode==='rss'?'rss':'products';
+  const rss=window.searchMode==='rss';
+  byId('modeProducts')?.classList.toggle('active',!rss);
+  byId('modeRss')?.classList.toggle('active',rss);
+  byId('rssFilters')?.classList.toggle('hide',!rss);
+  byId('productFilters')?.classList.toggle('hide',rss);
+  byId('searchModeHint').textContent=rss
+    ?'RSS: открытые новости и обзоры техники. Это не лента цен и скидок.'
+    :'Поиск предложений в подключённых товарных каталогах.';
+  byId('query').placeholder=rss?'Например, смартфоны, видеокарты, ноутбуки':'Например, смартфон или SSD';
+  byId('results').innerHTML='<div class="empty">'+(rss?'Нажми «Найти», чтобы загрузить открытые RSS-ленты.':'Выполни поиск товаров.')+'</div>';
+  byId('resultCount').textContent='0 записей';
+};
+const productSearchWithBackend=window.runSearch;
+window.runSearch=async function(){
+  if(window.searchMode!=='rss')return productSearchWithBackend();
+  return window.runRssSearch();
+};
+window.runRssSearch=async function(){
+  const base=apiBase();
+  if(!base){byId('results').innerHTML='<div class="notice">Для чтения RSS нужен запущенный backend. Сначала разверни backend и укажи HTTPS-адрес в Настройках.</div>';return;}
+  const q=byId('query').value.trim(),source=byId('rssSource').value;
+  byId('results').innerHTML='<div class="empty">Загружаем RSS-ленты…</div>';
+  try{
+    const params=new URLSearchParams({query:q,source,limit:'60'});
+    const response=await fetch(base+'/api/rss/items?'+params.toString());
+    const data=await response.json();
+    if(!response.ok)throw new Error(data.detail||('HTTP '+response.status));
+    found=(data.items||[]).map((item,i)=>({...item,id:'rss-'+i,is_rss:true,price:null,old:null,discount:0,cat:item.category}));
+    byId('resultCount').textContent=found.length+' публикаций';
+    byId('results').innerHTML=found.map((item,i)=>'<article class="product"><div class="product-top"><div><h3>'+safe(item.title)+'</h3><div class="product-meta">'+safe(item.source_name)+' · '+safe(item.category)+'</div></div><span class="pill">RSS</span></div><p class="muted">'+safe(item.summary||'В источнике нет краткого описания.')+'</p><div class="product-meta">'+safe(item.published||'Дата не указана')+'</div><div class="product-actions" style="margin-top:10px"><button class="btn alt" onclick="rssToEditor('+i+')">Подготовить пост</button><button class="btn ghost" onclick="openRssItem('+i+')">Открыть источник ↗</button></div></article>').join('')||'<div class="empty">В выбранной RSS-ленте ничего не найдено.</div>';
+    if(data.errors?.length)apiToast('Некоторые RSS-ленты временно недоступны');
+    updateStats();
+  }catch(e){byId('results').innerHTML='<div class="notice">Не удалось загрузить RSS: '+safe(e.message)+'</div>';byId('resultCount').textContent='ошибка';}
+};
+window.openRssItem=function(i){const item=found[i];if(item?.url)window.open(item.url,'_blank','noopener');};
+window.rssToEditor=function(i){
+  const item=found[i];if(!item)return;
+  byId('postTitle').value='📰 '+item.title;
+  byId('postName').value=item.title;
+  byId('postPrice').value='';
+  byId('postOld').value='';
+  byId('postUrl').value=item.url||'';
+  byId('postText').value=[item.summary||'Краткое описание отсутствует.', 'Источник: '+item.source_name, item.published?'Дата: '+item.published:'', 'Материал источника: '+item.url, 'Перед публикацией проверь факты и соблюдай правила цитирования и использования материалов источника.'].filter(Boolean).join('\\n\\n');
+  updatePreview();go('editor');apiToast('Материал RSS перенесён в редактор');
+};
+async function renderRssFeedList(){
+ const target=byId('rssFeedList');if(!target)return;
+ const feeds=[
+ ['iXBT — Новости','https://www.ixbt.com/export/news/rss.xml'],
+ ['iXBT — Статьи и обзоры','https://www.ixbt.com/export/articles/rss.xml'],
+ ['3DNews — Hardware','https://3dnews.ru/news/rss/'],
+ ['3DNews — Software','https://3dnews.ru/software-news/rss/'],
+ ['3DNews — Смартфоны','https://3dnews.ru/phone/rss/'],
+ ['Overclockers — Новости','https://overclockers.ru/rss/news.rss'],
+ ['Overclockers — Обзоры','https://overclockers.ru/rss/lab.rss']
+ ];
+ target.innerHTML=feeds.map(f=>'<div class="source-row"><span>'+safe(f[0])+'</span><a href="'+f[1]+'" target="_blank" rel="noopener">Открыть RSS ↗</a></div>').join('');
+}
+document.addEventListener('DOMContentLoaded',renderRssFeedList);
+renderRssFeedList();
