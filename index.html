@@ -61,7 +61,44 @@ function renderSources(target){$(target).innerHTML=stores.map((s,i)=>'<div class
 function renderCategories(){let cats=['Все',...new Set(products.map(p=>p.cat))];$('categoryChips').innerHTML=cats.map(c=>'<button class="chip '+(currentCategory===c?'active':'')+'" onclick="setCategory('+JSON.stringify(c)+')">'+safe(c)+'</button>').join('')}
 function setCategory(c){currentCategory=c;renderCategories();runSearch()}
 function updateStats(){$('statFound').textContent=found.length;$('statDeals').textContent=found.filter(p=>p.discount>=10).length;$('statPosts').textContent=drafts.length;$('queueCount').textContent=drafts.length}
-function runSearch(){let q=$('query').value.trim().toLowerCase(),store=$('store').value,min=+$('discountMin').value;found=products.filter(p=>(!q||(p.name+' '+p.cat+' '+stores[p.store]).toLowerCase().includes(q))&&(currentCategory==='Все'||p.cat===currentCategory)&&(store==='all'||stores[p.store]===store)&&p.discount>=min);let sort=$('sort').value;found.sort((a,b)=>sort==='price'?a.price-b.price:sort==='name'?a.name.localeCompare(b.name,'ru'):b.discount-a.discount);$('resultCount').textContent=found.length+' товаров';$('results').innerHTML=found.map(p=>'<article class="product"><div class="product-top"><div><h3>'+safe(p.name)+'</h3><div class="product-meta">'+stores[p.store]+' · '+p.cat+'</div></div><span class="pill">ДЕМО</span></div><div class="price-line"><span class="price">'+money(p.price)+'</span><span class="old">'+money(p.old)+'</span><span class="discount">−'+p.discount+'%</span></div><div class="product-actions"><button class="btn alt" onclick="toEditor('+p.id+')">В редактор</button><button class="btn ghost" onclick="openStore('+p.store+')">Магазин ↗</button></div></article>').join('')||'<div class="empty">По заданным фильтрам ничего не найдено.</div>';updateStats()}
+window.searchMode='products';
+function setSearchMode(mode){
+  window.searchMode=mode==='rss'?'rss':'products';
+  const rss=window.searchMode==='rss';
+  $('modeProducts').classList.toggle('active',!rss);
+  $('modeRss').classList.toggle('active',rss);
+  $('rssFilters').classList.toggle('hide',!rss);
+  $('productFilters').classList.toggle('hide',rss);
+  $('searchModeHint').textContent=rss?'RSS: открытые новости и обзоры техники. Это не лента цен и скидок.':'Поиск предложений в подключённых товарных каталогах.';
+  $('query').placeholder=rss?'Например, смартфоны, видеокарты, ноутбуки':'Например, смартфон или SSD';
+  $('results').innerHTML='<div class="empty">'+(rss?'Нажми «Найти», чтобы загрузить открытые RSS-ленты.':'Выполни поиск товаров.')+'</div>';
+  $('resultCount').textContent='0 записей';
+}
+window.setSearchMode=setSearchMode;
+async function runRssSearch(){
+  const base=(localStorage.getItem('maxPublisherApiBase')||'').replace(/\/$/,'');
+  if(!base){$('results').innerHTML='<div class="notice">Для загрузки RSS нужен backend. Укажи его HTTPS-адрес в разделе «Настройки».</div>';return;}
+  const params=new URLSearchParams({query:$('query').value.trim(),source:$('rssSource').value,limit:'60'});
+  $('results').innerHTML='<div class="empty">Загружаем RSS-ленты…</div>';
+  try{
+    const response=await fetch(base+'/api/rss/items?'+params.toString());
+    const data=await response.json();
+    if(!response.ok)throw new Error(data.detail||('HTTP '+response.status));
+    found=(data.items||[]).map((item,i)=>({...item,id:'rss-'+i,is_rss:true,price:null,old:null,discount:0,cat:item.category}));
+    $('resultCount').textContent=found.length+' публикаций';
+    $('results').innerHTML=found.map((item,i)=>'<article class="product"><div class="product-top"><div><h3>'+safe(item.title)+'</h3><div class="product-meta">'+safe(item.source_name)+' · '+safe(item.category)+'</div></div><span class="pill">RSS</span></div><p class="muted">'+safe(item.summary||'Краткое описание отсутствует.')+'</p><div class="product-meta">'+safe(item.published||'Дата не указана')+'</div><div class="product-actions"><button class="btn alt" onclick="rssToEditor('+i+')">Подготовить пост</button><button class="btn ghost" onclick="openRssItem('+i+')">Открыть источник ↗</button></div></article>').join('')||'<div class="empty">В выбранной RSS-ленте ничего не найдено.</div>';
+    updateStats();
+  }catch(error){$('results').innerHTML='<div class="notice">Не удалось загрузить RSS: '+safe(error.message)+'</div>';$('resultCount').textContent='ошибка';}
+}
+window.runRssSearch=runRssSearch;
+window.openRssItem=function(i){const item=found[i];if(item&&item.url)window.open(item.url,'_blank','noopener');};
+window.rssToEditor=function(i){
+  const item=found[i];if(!item)return;
+  $('postTitle').value='📰 '+item.title;$('postName').value=item.title;$('postPrice').value='';$('postOld').value='';$('postUrl').value=item.url||'';
+  $('postText').value=[item.summary||'Краткое описание отсутствует.','Источник: '+item.source_name,item.published?'Дата: '+item.published:'','Материал источника: '+item.url,'Перед публикацией проверь факты и соблюдай правила цитирования и использования материалов источника.'].filter(Boolean).join('\\n\\n');
+  updatePreview();go('editor');toast('Материал RSS перенесён в редактор');
+};
+function runSearch(){if(window.searchMode==='rss')return runRssSearch();let q=$('query').value.trim().toLowerCase(),store=$('store').value,min=+$('discountMin').value;found=products.filter(p=>(!q||(p.name+' '+p.cat+' '+stores[p.store]).toLowerCase().includes(q))&&(currentCategory==='Все'||p.cat===currentCategory)&&(store==='all'||stores[p.store]===store)&&p.discount>=min);let sort=$('sort').value;found.sort((a,b)=>sort==='price'?a.price-b.price:sort==='name'?a.name.localeCompare(b.name,'ru'):b.discount-a.discount);$('resultCount').textContent=found.length+' товаров';$('results').innerHTML=found.map(p=>'<article class="product"><div class="product-top"><div><h3>'+safe(p.name)+'</h3><div class="product-meta">'+stores[p.store]+' · '+p.cat+'</div></div><span class="pill">ДЕМО</span></div><div class="price-line"><span class="price">'+money(p.price)+'</span><span class="old">'+money(p.old)+'</span><span class="discount">−'+p.discount+'%</span></div><div class="product-actions"><button class="btn alt" onclick="toEditor('+p.id+')">В редактор</button><button class="btn ghost" onclick="openStore('+p.store+')">Магазин ↗</button></div></article>').join('')||'<div class="empty">По заданным фильтрам ничего не найдено.</div>';updateStats()}
 function openStore(i){window.open(['https://market.yandex.ru/','https://ozon.ru/','https://www.dns-shop.ru/','https://www.mvideo.ru/','https://www.citilink.ru/'][i],'_blank','noopener')}
 function toEditor(id){let p=products.find(x=>x.id===id);$('postTitle').value='🔥 Выгодное предложение дня';$('postName').value=p.name;$('postPrice').value=p.price;$('postOld').value=p.old;$('postUrl').value=p.url;$('postText').value='Нашли интересное предложение!\\n\\n'+p.name+'\\nЦена: '+money(p.price)+' вместо '+money(p.old)+'.\\nРазница по указанным ценам: '+p.discount+'%.\\n\\nПроверьте актуальную цену, наличие и условия доставки у продавца. Это демонстрационный пример.';updatePreview();go('editor');toast('Товар перенесён в редактор')}
 function makeDraft(){let name=$('postName').value.trim();if(!name){toast('Сначала укажи товар');return}let price=+$('postPrice').value,old=+$('postOld').value,discount=old>price&&price?Math.round((1-price/old)*100):0;$('postTitle').value=$('postTitle').value||'🔥 Выгодная находка';$('postText').value='Нашли интересное предложение!\\n\\n'+name+'\\nЦена: '+(price?money(price):'уточняйте цену')+(old>price&&price?' вместо '+money(old):'')+(discount?'\\nРазница по указанным ценам: '+discount+'%':'')+'\\n\\nПеред покупкой проверьте актуальную цену, наличие и условия доставки.';updatePreview();toast('Черновик создан по шаблону')}
