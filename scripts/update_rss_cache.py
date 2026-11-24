@@ -28,9 +28,9 @@ FEEDS = [
 
 
 def clean(value: object, limit: int = 900) -> str:
-    text = re.sub(r"<(script|style)[^>]*>.*?</\\1>", " ", str(value or ""), flags=re.I | re.S)
+    text = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", str(value or ""), flags=re.I | re.S)
     text = re.sub(r"<[^>]+>", " ", text)
-    return re.sub(r"\\s+", " ", html.unescape(text)).strip()[:limit]
+    return re.sub(r"\s+", " ", html.unescape(text)).strip()[:limit]
 
 
 def published(entry: dict) -> str:
