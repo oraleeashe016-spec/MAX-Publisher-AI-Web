@@ -17,12 +17,14 @@ services:
         sync: false
       - key: OLLAMA_MODEL
         sync: false
+      - key: CLOUD_AI_PROVIDER
+        value: groq
       - key: CLOUD_AI_BASE_URL
-        sync: false
+        value: https://api.groq.com/openai/v1
       - key: CLOUD_AI_API_KEY
         sync: false
       - key: CLOUD_AI_MODEL
-        sync: false
+        value: openai/gpt-oss-20b
       - key: MAX_BOT_TOKEN
         sync: false
       - key: MAX_CHANNEL_ID

@@ -14,7 +14,7 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, HttpUrl
 
-APP_VERSION = "0.5.1"
+APP_VERSION = "0.6.1"
 MAX_API = "https://platform-api2.max.ru"
 
 def env(name: str, default: str = "") -> str:
@@ -42,8 +42,11 @@ class DraftRequest(BaseModel):
     current_price: str = Field(default="", max_length=40)
     previous_price: str = Field(default="", max_length=40)
     product_url: str = Field(default="", max_length=1000)
-    facts: str = Field(default="", max_length=2000)
+    facts: str = Field(default="", max_length=4000)
     tone: Literal["neutral", "energetic", "concise"] = "energetic"
+    content_type: Literal["product", "rss"] = "product"
+    source_name: str = Field(default="", max_length=120)
+    published_at: str = Field(default="", max_length=80)
 
 class PublishRequest(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
@@ -129,8 +132,14 @@ async def config():
         "sources": source_status(),
         "ai": {
             "mode": env("AI_MODE", "hybrid"),
+            "cloud_provider": env("CLOUD_AI_PROVIDER", "groq").lower(),
+            "cloud_model": env("CLOUD_AI_MODEL", "openai/gpt-oss-20b"),
             "ollama_configured": bool(env("OLLAMA_BASE_URL") and env("OLLAMA_MODEL")),
-            "cloud_configured": bool(env("CLOUD_AI_BASE_URL") and env("CLOUD_AI_API_KEY") and env("CLOUD_AI_MODEL")),
+            "cloud_configured": bool(
+                env("CLOUD_AI_API_KEY")
+                and env("CLOUD_AI_MODEL", "openai/gpt-oss-20b")
+                and env("CLOUD_AI_BASE_URL", "https://api.groq.com/openai/v1")
+            ),
         },
         "max": {"configured": bool(env("MAX_BOT_TOKEN") and env("MAX_CHANNEL_ID"))},
     }
@@ -259,30 +268,57 @@ async def call_chat_completion(base_url: str, model: str, api_key: str, prompt: 
         data = response.json()
     return str(data["choices"][0]["message"]["content"]).strip()
 
-@app.post("/api/ai/draft")
-async def ai_draft(request: DraftRequest, x_api_key: str | None = Header(default=None)):
-    require_api_key(x_api_key)
-    prompt = (
+def build_ai_prompt(request: DraftRequest) -> str:
+    if request.content_type == "rss":
+        return (
+            "Переработай предоставленную RSS-новость в самостоятельный короткий пост для канала MAX. "
+            "Не выдавай пересказ за оригинальный репортаж и не добавляй сведения, которых нет во входных данных. "
+            "Сохрани точные имена, модели, числа и смысл. Не придумывай цены, скидки, наличие, цитаты или характеристики. "
+            "Не делай категоричных выводов сверх источника. Используй нейтральный новостной стиль. "
+            "Не копируй длинные фрагменты исходного текста; сделай краткое изложение своими словами. "
+            "В конце отдельной строкой укажи источник и ссылку, если они предоставлены. "
+            "Верни только готовый текст поста, без пояснений редактора.\n\n"
+            f"Заголовок: {request.product_name}\n"
+            f"Источник: {request.source_name or 'не указан'}\n"
+            f"Дата публикации: {request.published_at or 'не указана'}\n"
+            f"Ссылка на оригинал: {request.product_url or 'не указана'}\n"
+            f"Текст/описание RSS: {request.facts or 'описание отсутствует'}\n"
+            f"Формат: {request.tone}\n"
+        )
+    return (
         f"Подготовь пост для канала MAX в стиле {request.tone}.\n"
         f"Товар: {request.product_name}\nТекущая цена: {request.current_price or 'не указана'}\n"
         f"Предыдущая цена: {request.previous_price or 'не указана'}\n"
         f"Ссылка: {request.product_url or 'не указана'}\nФакты: {request.facts or 'не указаны'}\n"
         "Не называй предложение скидкой, если подтверждающей цены нет. Не добавляй неподтверждённые факты."
     )
+
+
+@app.post("/api/ai/draft")
+async def ai_draft(request: DraftRequest, x_api_key: str | None = Header(default=None)):
+    require_api_key(x_api_key)
+    prompt = build_ai_prompt(request)
     mode = env("AI_MODE", "hybrid").lower()
     ollama_url, ollama_model = env("OLLAMA_BASE_URL"), env("OLLAMA_MODEL")
-    cloud_url, cloud_key, cloud_model = env("CLOUD_AI_BASE_URL"), env("CLOUD_AI_API_KEY"), env("CLOUD_AI_MODEL")
+    cloud_provider = env("CLOUD_AI_PROVIDER", "groq").lower()
+    cloud_url = env("CLOUD_AI_BASE_URL", "https://api.groq.com/openai/v1")
+    cloud_key = env("CLOUD_AI_API_KEY")
+    cloud_model = env("CLOUD_AI_MODEL", "openai/gpt-oss-20b")
     if mode in ("hybrid", "ollama") and ollama_url and ollama_model:
         try:
             text = await call_chat_completion(ollama_url, ollama_model, "", prompt)
-            return {"text": text, "provider": "ollama"}
+            return {"text": text, "provider": "ollama", "model": ollama_model}
         except (httpx.HTTPError, KeyError, IndexError, ValueError):
             if mode == "ollama":
                 raise HTTPException(502, "Ollama provider unavailable")
     if mode in ("hybrid", "cloud") and cloud_url and cloud_key and cloud_model:
         try:
             text = await call_chat_completion(cloud_url, cloud_model, cloud_key, prompt)
-            return {"text": text, "provider": "cloud"}
+            return {"text": text, "provider": cloud_provider, "model": cloud_model}
+        except httpx.HTTPStatusError as exc:
+            if exc.response is not None and exc.response.status_code == 429:
+                raise HTTPException(429, "AI quota reached. Wait for the provider limit reset.")
+            raise HTTPException(502, "Cloud AI provider rejected the request")
         except (httpx.HTTPError, KeyError, IndexError, ValueError):
             raise HTTPException(502, "Cloud AI provider unavailable")
     raise HTTPException(503, "No AI provider is configured")

@@ -1,4 +1,4 @@
-# MAX Publisher AI Web — v0.5.1
+# MAX Publisher AI Web — v0.6.0
 
 Mobile-first PWA for discovering technology stories and preparing posts for a MAX channel.
 
@@ -63,3 +63,17 @@ The free Render service may sleep while idle; the first request after inactivity
 - RSS post builder uses only the selected feed item's title, summary, source, publication date, and original URL.
 - The editor clearly indicates when an RSS item is selected; it does not claim to use a connected AI model.
 - No unverified facts, prices, or product specifications are generated.
+
+
+## v0.6.0 — Groq Cloud integration
+
+- Groq is the default cloud AI provider in the backend.
+- Default OpenAI-compatible endpoint: `https://api.groq.com/openai/v1`.
+- Default model: `openai/gpt-oss-20b`; change it only after checking current model availability and account limits.
+- Groq API credentials are backend-only environment secrets; they are never embedded in GitHub Pages or returned by the configuration endpoint.
+- Backend readiness reports the provider and model name without exposing the key.
+- Hybrid mode continues to try configured Ollama first and falls back to Groq.
+
+**Age and account ownership:** Groq's Services Agreement requires the account holder to be 18 or older. A parent/legal guardian or other adult project owner must create and manage the provider account, accept the agreement, control API keys and review privacy settings. The adult owner is responsible for ensuring the app's use by minors complies with applicable rules. Do not place provider keys in the frontend, chat, commits or issues.
+
+**Free plan:** Groq limits are model- and organization-specific and may change. Check the exact current limits in the adult account's Groq Console. HTTP 429 means the quota has been reached; wait for the reset instead of retrying repeatedly.
