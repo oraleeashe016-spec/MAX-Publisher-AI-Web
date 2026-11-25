@@ -67,7 +67,7 @@ window.makeDraft=async function(){
  apiToast('Это локальный шаблон, не AI. Для AI настрой backend и APP_API_KEY.');
  const price=Number(byId('postPrice').value),old=Number(byId('postOld').value);
  const discount=old>price&&price?Math.round((1-price/old)*100):0;
- byId('postText').value='Нашли интересное предложение!\n\n'+name+'\\nЦена: '+(price?money(price):'уточняйте цену')+(old>price&&price?' вместо '+money(old):'')+(discount?'\nРазница по указанным ценам: '+discount+'%':'')+'\n\nПеред покупкой проверьте актуальную цену, наличие и условия доставки.';
+ byId('postText').value='Нашли интересное предложение!\n\n'+name+'\nЦена: '+(price?money(price):'уточняйте цену')+(old>price&&price?' вместо '+money(old):'')+(discount?'\nРазница по указанным ценам: '+discount+'%':'')+'\n\nПеред покупкой проверьте актуальную цену, наличие и условия доставки.';
  updatePreview();
 };
 window.renderQueue=function(){if(!drafts.length){byId('queue').innerHTML='<div class="empty">Сохранённых публикаций пока нет.</div>';return;}byId('queue').innerHTML=drafts.map(p=>'<div class="source-row" style="align-items:flex-start"><div style="min-width:0"><b>'+safe(p.name)+'</b><div class="muted">'+safe(p.created)+' · '+(p.price?money(p.price):'цена не указана')+'</div><div class="muted">'+safe(p.title)+'</div></div><div style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn ghost" onclick="editDraft('+p.id+')">Открыть</button><button class="btn alt" onclick="sendApiDraft('+p.id+')">Отправить</button><button class="btn danger" onclick="deleteDraft('+p.id+')">×</button></div></div>').join('');};
