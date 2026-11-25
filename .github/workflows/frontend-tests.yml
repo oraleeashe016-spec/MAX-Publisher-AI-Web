@@ -34,7 +34,7 @@ jobs:
           inline_scripts = [script for script in scripts if script.strip()]
           if not inline_scripts:
               raise SystemExit("No inline JavaScript found in index.html")
-          Path("/tmp/index-inline.js").write_text("\\n".join(inline_scripts), encoding="utf-8")
+          Path("/tmp/index-inline.js").write_text("".join(inline_scripts), encoding="utf-8")
           print(f"Extracted {len(inline_scripts)} inline script block(s)")
           PY
           node --check /tmp/index-inline.js
